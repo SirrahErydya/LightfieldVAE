@@ -7,7 +7,12 @@ from torch.nn import functional as F
 from torchvision import datasets, transforms
 from torchvision.utils import save_image
 
-
+"""
+Basic VAE Example from PyTorch
+This is an improved implementation of the paper Auto-Encoding Variational Bayes by Kingma and Welling. 
+It uses ReLUs and the adam optimizer, instead of sigmoids and adagrad. 
+These changes make the network converge much faster.
+"""
 parser = argparse.ArgumentParser(description='VAE MNIST Example')
 parser.add_argument('--batch-size', type=int, default=128, metavar='N',
                     help='input batch size for training (default: 128)')

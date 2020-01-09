@@ -6,9 +6,7 @@ import os
 import random
 import copy
 
-from ..utils import pfm
-from ..utils import dl
-from ..utils import lf
+from dataloaders import pfm, dl, lf
 
 
 class HCI4D(Dataset):

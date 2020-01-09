@@ -1,3 +1,5 @@
+# Ignore data files
+data/
 
 # Created by https://www.gitignore.io/api/c,c++,latex,python,pycharm,jupyternotebooks
 # Edit at https://www.gitignore.io/?templates=c,c++,latex,python,pycharm,jupyternotebooks
