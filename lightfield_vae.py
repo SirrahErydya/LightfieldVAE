@@ -13,18 +13,29 @@ class VAE(nn.Module):
     """
     Basic VAE from the pytorch examples
     """
-    def __init__(self):
+    def __init__(self, hidden_dims, latent_size, dims=(27, 512, 512)):
         super(VAE, self).__init__()
 
-        self.fc1 = nn.Linear(512*512, 400)
-        self.fc21 = nn.Linear(400, 20)
-        self.fc22 = nn.Linear(400, 20)
-        self.fc3 = nn.Linear(20, 400)
-        self.fc4 = nn.Linear(400, 512*512)
+        num_hidden = len(hidden_dims)
+
+        encoder_layers = [nn.Linear(np.prod(dims), hidden_dims[0]), nn.ReLU()]
+        decoder_layers = [nn.Linear(latent_size, hidden_dims[num_hidden - 1]), nn.ReLU()]
+
+        for i in range(1, num_hidden):
+            encoder_layers.append(nn.Linear(hidden_dims[i-1], hidden_dims[i]))
+            encoder_layers.append(nn.ReLU())
+            decoder_layers.append(nn.Linear(hidden_dims[num_hidden-i], hidden_dims[num_hidden-(i+1)]))
+            decoder_layers.append(nn.ReLU())
+
+        decoder_layers.append(nn.Linear(hidden_dims[0], np.prod(dims)))
+        self.mu_layer = nn.Linear(hidden_dims[len(hidden_dims)-1], latent_size)
+        self.var_layer = nn.Linear(hidden_dims[len(hidden_dims) - 1], latent_size)
+        self.encoder = nn.Sequential(*encoder_layers)
+        self.decoder = nn.Sequential(*decoder_layers)
 
     def encode(self, x):
-            h1 = F.relu(self.fc1(x))
-            return self.fc21(h1), self.fc22(h1)
+            h1 = self.encoder(x)
+            return self.mu_layer(h1), self.var_layer(h1)
 
     def reparameterize(self, mu, logvar):
         std = torch.exp(0.5*logvar)
@@ -32,8 +43,8 @@ class VAE(nn.Module):
         return mu + eps*std
 
     def decode(self, z):
-        h3 = F.relu(self.fc3(z))
-        return torch.sigmoid(self.fc4(h3))
+        h3 = self.decoder(z)
+        return torch.sigmoid(h3)
 
     def forward(self, x):
         mu, logvar = self.encode(x.view(-1, 512*512))
@@ -54,33 +65,3 @@ def loss_function(recon_x, x, mu, logvar):
     return BCE + KLD
 
 
-def show_scene(scene):
-    # The scene was observed by a 9x9 camera array
-    # Thus the loader contains 9 horizontal, 9 vertical, 9 increasing diagonal, and 9 decreasing diagonal images
-    h_views, v_views, i_views, d_views, center, gt, mask, index = scene
-    fig, axes = plt.subplots(9, 9, figsize=(18, 18))
-    for y in range(9):
-        for x in range(9):
-            if x == 4 and y == 4:
-                img = center
-            elif x == 4:
-                img = v_views[y]
-            elif y == 4:
-                img = h_views[x]
-            elif x == y:
-                img = d_views[x]
-            elif x+y == 8:
-                img = i_views[y]
-            else:
-                img = np.zeros((3, 512, 512))
-            img = np.stack((img[0], img[1], img[2]), axis=-1)
-            axes[y][x].imshow(img)
-            axes[y][x].set_yticklabels([])
-            axes[y][x].set_xticklabels([])
-    plt.show()
-
-
-def show_ground_truth(scene):
-    h_views, v_views, i_views, d_views, center, gt, mask, index = scene
-    plt.imshow(gt)
-    plt.show()
