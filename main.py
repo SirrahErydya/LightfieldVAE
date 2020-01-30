@@ -64,8 +64,8 @@ def train(epoch, log_interval=1):
 
 
 if __name__ == '__main__':
-    for epoch in range(1, 51):
-        train(epoch, log_interval=5)
+    #for epoch in range(1, 51):
+        #train(epoch, log_interval=5)
 
     model.eval()
     test_loss = 0
@@ -74,7 +74,7 @@ if __name__ == '__main__':
             h_views, v_views, i_views, d_views, center, gt, mask, index = data
             data_h = h_views[0].to(device)
             data_v = v_views[0].to(device)
-            data_h, data_v = torch.mean(data_h, dim=3), torch.mean(data_v, dim=3)
+            data_h, data_v = torch.mean(data_h, dim=1), torch.mean(data_v, dim=1)
             mu_h, var_h = model.encode(data_h.view(-1, 512 * 512))
             mu_v, var_v = model.encode(data_v.view(-1, 512 * 512))
             z_h, z_v = model.reparameterize(mu_h, var_h), model.reparameterize(mu_v, var_v)
