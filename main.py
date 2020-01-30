@@ -13,20 +13,20 @@ DATA_ROOT = os.path.join('data', 'SyntheticLightfieldData')
 BATCH_SIZE = 2
 use_cuda = torch.cuda.is_available()
 print("Use cuda:", use_cuda)
-kwargs = {'num_workers': 1, 'pin_memory': True} if use_cuda else {}
+kwargs = {'num_workers': 64, 'pin_memory': True} if use_cuda else {}
 
 train_set = hci4d.HCI4D(os.path.join(DATA_ROOT, 'training'))
 test_set = hci4d.HCI4D(os.path.join(DATA_ROOT, 'test'))
 print("Training set length:", len(train_set))
 print("Test set length:", len(test_set))
 device = torch.device("cuda" if use_cuda else "cpu")
-model = vae.VAE([400], 150, (512, 512)).to(device)
+model = vae.VAE([2000, 1000], 500, (512, 512)).to(device)
 optimizer = optim.Adam(model.parameters(), lr=1e-4)
 
 # Load horizontal lightfield data
 # TODO: How to handle different directions
 # Todo: Data Augmentation: RandomCrop, RedistColor, Contrast, Brightness, RandomRotate
-train_loader = DataLoader(train_set, batch_size=BATCH_SIZE, shuffle=True, **kwargs)
+train_loader = DataLoader(test_set, batch_size=1, shuffle=True, **kwargs)
 test_loader = DataLoader(test_set, batch_size=1, shuffle=False, **kwargs)
 
 n_train = len(train_loader.dataset)
@@ -64,7 +64,7 @@ def train(epoch, log_interval=1):
 
 
 if __name__ == '__main__':
-    for epoch in range(1, 11):
+    for epoch in range(1, 51):
         train(epoch, log_interval=5)
 
     model.eval()
