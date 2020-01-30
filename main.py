@@ -74,6 +74,7 @@ if __name__ == '__main__':
             h_views, v_views, i_views, d_views, center, gt, mask, index = data
             data_h = h_views[0].to(device)
             data_v = v_views[0].to(device)
+            data_h, data_v = torch.mean(data_h, dim=3), torch.mean(data_v, dim=3)
             mu_h, var_h = model.encode(data_h.view(-1, 512 * 512))
             mu_v, var_v = model.encode(data_v.view(-1, 512 * 512))
             z_h, z_v = model.reparameterize(mu_h, var_h), model.reparameterize(mu_v, var_v)
@@ -83,7 +84,7 @@ if __name__ == '__main__':
                 print("True decreasing diagonal:")
                 show_view_sequence(d_views[0])
                 print("Predicted:")
-                show_view_sequence(predicted.cpu().view(9, 3, 512, 512), save=True)
+                show_view_sequence(predicted.cpu().view(-1, 512, 512, 1), save=True)
 
     test_loss /= len(test_loader.dataset)
     print('====> Test set loss: {:.4f}'.format(test_loss))

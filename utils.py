@@ -33,11 +33,7 @@ def show_view_sequence(views, save=False):
     length = views.shape[0]
     fig, axes = plt.subplots(1, length, figsize=(20, 20*length))
     for i in range(length):
-        if views.shape[1] == 3:
-            img = np.stack((views[i][0], views[i][1], views[i][2]), axis=-1)
-        else:
-            img = views[i]
-        axes[i].imshow(img)
+        axes[i].imshow(views[i], cmap='gray')
         axes[i].set_yticklabels([])
         axes[i].set_xticklabels([])
         if save:

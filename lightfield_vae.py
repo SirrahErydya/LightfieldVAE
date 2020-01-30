@@ -13,7 +13,7 @@ class VAE(nn.Module):
     """
     Basic VAE from the pytorch examples
     """
-    def __init__(self, hidden_dims, latent_size, dims=(3, 512, 512)):
+    def __init__(self, hidden_dims, latent_size, dims=(9, 512, 512)):
         super(VAE, self).__init__()
 
         num_hidden = len(hidden_dims)
