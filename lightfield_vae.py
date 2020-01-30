@@ -15,7 +15,7 @@ class VAE(nn.Module):
     """
     def __init__(self, hidden_dims, latent_size, dims=(9, 512, 512)):
         super(VAE, self).__init__()
-
+        self.dims = dims
         num_hidden = len(hidden_dims)
 
         encoder_layers = [nn.Linear(np.prod(dims), hidden_dims[0]), nn.ReLU()]
@@ -47,14 +47,14 @@ class VAE(nn.Module):
         return torch.sigmoid(h3)
 
     def forward(self, x):
-        mu, logvar = self.encode(x.view(-1, 512*512))
+        mu, logvar = self.encode(x.view(-1, np.prod(self.dims)))
         z = self.reparameterize(mu, logvar)
         return self.decode(z), mu, logvar
 
 
 # Reconstruction + KL divergence losses summed over all elements and batch
 def loss_function(recon_x, x, mu, logvar):
-    BCE = F.binary_cross_entropy(recon_x, x.view(-1, 512*512), reduction='sum')
+    BCE = F.binary_cross_entropy(recon_x, x.view(-1, 9*512*512), reduction='sum')
 
     # see Appendix B from VAE paper:
     # Kingma and Welling. Auto-Encoding Variational Bayes. ICLR, 2014
