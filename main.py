@@ -20,7 +20,7 @@ test_set = hci4d.HCI4D(os.path.join(DATA_ROOT, 'test'))
 print("Training set length:", len(train_set))
 print("Test set length:", len(test_set))
 device = torch.device("cuda" if use_cuda else "cpu")
-model = vae.VAE([2000, 1000], 500, (9, 512, 512)).to(device)
+model = vae.VAE([400], 50, (9, 512, 512)).to(device)
 optimizer = optim.Adam(model.parameters(), lr=1e-4)
 
 # Load horizontal lightfield data
@@ -64,8 +64,8 @@ def train(epoch, log_interval=1):
 
 
 if __name__ == '__main__':
-    #for epoch in range(1, 51):
-        #train(epoch, log_interval=5)
+    for epoch in range(1, 51):
+        train(epoch, log_interval=5)
 
     model.eval()
     test_loss = 0
@@ -75,17 +75,15 @@ if __name__ == '__main__':
             data_h = h_views[0].to(device)
             data_v = v_views[0].to(device)
             data_h, data_v = torch.mean(data_h, dim=1), torch.mean(data_v, dim=1)
-            mu_h, var_h = model.encode(data_h.view(-1, 512 * 512))
-            mu_v, var_v = model.encode(data_v.view(-1, 512 * 512))
+            mu_h, var_h = model.encode(data_h.view(-1, 9*512 * 512))
+            mu_v, var_v = model.encode(data_v.view(-1, 9*512 * 512))
             z_h, z_v = model.reparameterize(mu_h, var_h), model.reparameterize(mu_v, var_v)
             predicted = model.decode(z_h + z_v)
-            ground_truth = torch.mean(d_views[0].to(device), dim=3)
+            ground_truth = torch.mean(d_views[0].to(device), dim=1).view(9*512 * 512)
             test_loss += F.l1_loss(predicted, ground_truth)
             if i == 0:
-                print("True decreasing diagonal:")
-                show_view_sequence(d_views[0])
-                print("Predicted:")
-                show_view_sequence(predicted.cpu().view(-1, 512, 512, 1), save=True)
+                print("Save predicition///:")
+                show_view_sequence(predicted.cpu().view(9, 512, 512), save=True)
 
     test_loss /= len(test_loader.dataset)
     print('====> Test set loss: {:.4f}'.format(test_loss))
