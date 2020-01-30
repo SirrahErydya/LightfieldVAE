@@ -20,7 +20,7 @@ test_set = hci4d.HCI4D(os.path.join(DATA_ROOT, 'test'))
 print("Training set length:", len(train_set))
 print("Test set length:", len(test_set))
 device = torch.device("cuda" if use_cuda else "cpu")
-model = vae.VAE([2000, 1000], 500, (512, 512)).to(device)
+model = vae.VAE([2000, 1000], 500, (9, 512, 512)).to(device)
 optimizer = optim.Adam(model.parameters(), lr=1e-4)
 
 # Load horizontal lightfield data
@@ -79,7 +79,8 @@ if __name__ == '__main__':
             mu_v, var_v = model.encode(data_v.view(-1, 512 * 512))
             z_h, z_v = model.reparameterize(mu_h, var_h), model.reparameterize(mu_v, var_v)
             predicted = model.decode(z_h + z_v)
-            test_loss += F.l1_loss(predicted, d_views[0].to(device).view(-1, 512 * 512))
+            ground_truth = torch.mean(d_views[0].to(device), dim=3)
+            test_loss += F.l1_loss(predicted, ground_truth)
             if i == 0:
                 print("True decreasing diagonal:")
                 show_view_sequence(d_views[0])
