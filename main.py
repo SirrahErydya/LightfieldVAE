@@ -20,14 +20,14 @@ test_set = hci4d.HCI4D(os.path.join(DATA_ROOT, 'test'))
 print("Training set length:", len(train_set))
 print("Test set length:", len(test_set))
 device = torch.device("cuda" if use_cuda else "cpu")
-model = vae.VAE([400], 50, (9, 512, 512)).to(device)
+model = vae.VAE().to(device)
 optimizer = optim.Adam(model.parameters(), lr=1e-4)
 
 # Load horizontal lightfield data
 # TODO: How to handle different directions
 # Todo: Data Augmentation: RandomCrop, RedistColor, Contrast, Brightness, RandomRotate
-train_loader = DataLoader(test_set, batch_size=1, shuffle=True, **kwargs)
-test_loader = DataLoader(test_set, batch_size=1, shuffle=False, **kwargs)
+train_loader = DataLoader(test_set, batch_size=2, shuffle=True, **kwargs)
+test_loader = DataLoader(test_set, batch_size=2, shuffle=False, **kwargs)
 
 n_train = len(train_loader.dataset)
 n_test = len(test_loader.dataset)
@@ -37,6 +37,8 @@ print("Data samples for testing:", n_test)
 
 def train_step(data):
     data = data.to(device)
+    data = data.view(-1, 27, 512, 512)
+    print(data.shape)
     optimizer.zero_grad()
     recon_batch, mu, logvar = model(data)
     loss = vae.loss_function(recon_batch, data, mu, logvar)
@@ -74,7 +76,6 @@ if __name__ == '__main__':
             h_views, v_views, i_views, d_views, center, gt, mask, index = data
             data_h = h_views[0].to(device)
             data_v = v_views[0].to(device)
-            data_h, data_v = torch.mean(data_h, dim=1), torch.mean(data_v, dim=1)
             mu_h, var_h = model.encode(data_h.view(-1, 9*512 * 512))
             mu_v, var_v = model.encode(data_v.view(-1, 9*512 * 512))
             z_h, z_v = model.reparameterize(mu_h, var_h), model.reparameterize(mu_v, var_v)

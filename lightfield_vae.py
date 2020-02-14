@@ -1,5 +1,6 @@
 """
 Train an autoencoder on synthetic lightfield images to predict missing images in the camera array
+Architecture provided by https://www.researchgate.net/figure/Convolutional-variational-autoencoder-architecture-The-deep-learning-network-processes_fig1_329836538
 :author: Fenja Kollasch
 """
 from matplotlib import pyplot as plt
@@ -8,33 +9,41 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 
+NUM_FILTERS = 32
+DENSE_DIM = (32, 249, 249)
+DENSE_SIZE = np.prod(DENSE_DIM)
 
 class VAE(nn.Module):
     """
     Basic VAE from the pytorch examples
     """
-    def __init__(self, hidden_dims, latent_size, dims=(9, 512, 512)):
+    def __init__(self, latent_size=256, dims=(9, 3, 512, 512)):
         super(VAE, self).__init__()
         self.dims = dims
-        num_hidden = len(hidden_dims)
 
-        encoder_layers = [nn.Linear(np.prod(dims), hidden_dims[0]), nn.ReLU()]
-        decoder_layers = [nn.Linear(latent_size, hidden_dims[num_hidden - 1]), nn.ReLU()]
-
-        for i in range(1, num_hidden):
-            encoder_layers.append(nn.Linear(hidden_dims[i-1], hidden_dims[i]))
-            encoder_layers.append(nn.ReLU())
-            decoder_layers.append(nn.Linear(hidden_dims[num_hidden-i], hidden_dims[num_hidden-(i+1)]))
-            decoder_layers.append(nn.ReLU())
-
-        decoder_layers.append(nn.Linear(hidden_dims[0], np.prod(dims)))
-        self.mu_layer = nn.Linear(hidden_dims[len(hidden_dims)-1], latent_size)
-        self.var_layer = nn.Linear(hidden_dims[len(hidden_dims) - 1], latent_size)
-        self.encoder = nn.Sequential(*encoder_layers)
-        self.decoder = nn.Sequential(*decoder_layers)
+        self.encoder = nn.Sequential(
+            nn.Conv2d(in_channels=dims[0]*dims[1], out_channels=NUM_FILTERS, kernel_size=4, stride=1), nn.ReLU(),
+            nn.Conv2d(in_channels=NUM_FILTERS, out_channels=NUM_FILTERS, kernel_size=4, stride=1), nn.ReLU(),
+            nn.Conv2d(in_channels=NUM_FILTERS, out_channels=NUM_FILTERS, kernel_size=4, stride=2), nn.ReLU(),
+            nn.Conv2d(in_channels=NUM_FILTERS, out_channels=NUM_FILTERS, kernel_size=4, stride=1), nn.Sigmoid()
+        )
+        self.decoder = nn.Sequential(
+            nn.ConvTranspose2d(in_channels=NUM_FILTERS, out_channels=NUM_FILTERS, kernel_size=4, stride=1), nn.ReLU(),
+            nn.ConvTranspose2d(in_channels=NUM_FILTERS, out_channels=NUM_FILTERS, kernel_size=4, stride=2), nn.ReLU(),
+            nn.ConvTranspose2d(in_channels=NUM_FILTERS, out_channels=NUM_FILTERS, kernel_size=4, stride=1), nn.ReLU(),
+            nn.ConvTranspose2d(in_channels=NUM_FILTERS, out_channels=dims[0]*dims[1], kernel_size=4, stride=1), nn.Sigmoid()
+        )
+        self.dense_enc = nn.Linear(DENSE_SIZE, 1024)
+        self.dense_dec = nn.Linear(1024, DENSE_SIZE)
+        self.mu_layer = nn.Linear(1024, latent_size)
+        self.var_layer = nn.Linear(1024, latent_size)
+        self.z_layer = nn.Linear(latent_size, 1024)
 
     def encode(self, x):
-            h1 = self.encoder(x)
+            conv = self.encoder(x)
+            print(conv.shape)
+            enc_input = conv.view(-1, DENSE_SIZE)
+            h1 = self.dense_enc(enc_input)
             return self.mu_layer(h1), self.var_layer(h1)
 
     def reparameterize(self, mu, logvar):
@@ -43,18 +52,20 @@ class VAE(nn.Module):
         return mu + eps*std
 
     def decode(self, z):
-        h3 = self.decoder(z)
-        return torch.sigmoid(h3)
+        h3 = self.dense_dec(F.relu(self.z_layer(z))).view(-1, *DENSE_DIM)
+        return self.decoder(h3)
 
     def forward(self, x):
-        mu, logvar = self.encode(x.view(-1, np.prod(self.dims)))
+        mu, logvar = self.encode(x)
         z = self.reparameterize(mu, logvar)
         return self.decode(z), mu, logvar
 
 
 # Reconstruction + KL divergence losses summed over all elements and batch
 def loss_function(recon_x, x, mu, logvar):
-    BCE = F.binary_cross_entropy(recon_x, x.view(-1, 9*512*512), reduction='sum')
+    print(recon_x.shape)
+    print(x.shape)
+    BCE = F.binary_cross_entropy(recon_x, x, reduction='sum')
 
     # see Appendix B from VAE paper:
     # Kingma and Welling. Auto-Encoding Variational Bayes. ICLR, 2014
