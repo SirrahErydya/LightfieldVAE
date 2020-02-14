@@ -17,7 +17,7 @@ class VAE(nn.Module):
     """
     Basic VAE from the pytorch examples
     """
-    def __init__(self, latent_size=256, dims=(9, 3, 512, 512)):
+    def __init__(self, latent_size=16, dims=(9, 3, 512, 512)):
         super(VAE, self).__init__()
         self.dims = dims
 
@@ -33,15 +33,14 @@ class VAE(nn.Module):
             nn.ConvTranspose2d(in_channels=NUM_FILTERS, out_channels=NUM_FILTERS, kernel_size=4, stride=1), nn.ReLU(),
             nn.ConvTranspose2d(in_channels=NUM_FILTERS, out_channels=dims[0]*dims[1], kernel_size=4, stride=1), nn.Sigmoid()
         )
-        self.dense_enc = nn.Linear(DENSE_SIZE, 1024)
-        self.dense_dec = nn.Linear(1024, DENSE_SIZE)
-        self.mu_layer = nn.Linear(1024, latent_size)
-        self.var_layer = nn.Linear(1024, latent_size)
-        self.z_layer = nn.Linear(latent_size, 1024)
+        self.dense_enc = nn.Linear(DENSE_SIZE, 256)
+        self.dense_dec = nn.Linear(256, DENSE_SIZE)
+        self.mu_layer = nn.Linear(256, latent_size)
+        self.var_layer = nn.Linear(256, latent_size)
+        self.z_layer = nn.Linear(latent_size, 256)
 
     def encode(self, x):
             conv = self.encoder(x)
-            print(conv.shape)
             enc_input = conv.view(-1, DENSE_SIZE)
             h1 = self.dense_enc(enc_input)
             return self.mu_layer(h1), self.var_layer(h1)
@@ -63,8 +62,6 @@ class VAE(nn.Module):
 
 # Reconstruction + KL divergence losses summed over all elements and batch
 def loss_function(recon_x, x, mu, logvar):
-    print(recon_x.shape)
-    print(x.shape)
     BCE = F.binary_cross_entropy(recon_x, x, reduction='sum')
 
     # see Appendix B from VAE paper:
