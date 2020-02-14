@@ -25,7 +25,7 @@ class VAE(nn.Module):
             nn.Conv2d(in_channels=dims[0]*dims[1], out_channels=NUM_FILTERS, kernel_size=4, stride=1), nn.ReLU(),
             nn.Conv2d(in_channels=NUM_FILTERS, out_channels=NUM_FILTERS, kernel_size=4, stride=1), nn.ReLU(),
             nn.Conv2d(in_channels=NUM_FILTERS, out_channels=NUM_FILTERS, kernel_size=4, stride=2), nn.ReLU(),
-            nn.Conv2d(in_channels=NUM_FILTERS, out_channels=NUM_FILTERS, kernel_size=4, stride=1), nn.Sigmoid()
+            nn.Conv2d(in_channels=NUM_FILTERS, out_channels=NUM_FILTERS, kernel_size=4, stride=1)#, nn.Sigmoid()
         )
         self.decoder = nn.Sequential(
             nn.ConvTranspose2d(in_channels=NUM_FILTERS, out_channels=NUM_FILTERS, kernel_size=4, stride=1), nn.ReLU(),

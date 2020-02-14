@@ -26,7 +26,7 @@ optimizer = optim.Adam(model.parameters(), lr=1e-4)
 # Load horizontal lightfield data
 # TODO: How to handle different directions
 # Todo: Data Augmentation: RandomCrop, RedistColor, Contrast, Brightness, RandomRotate
-train_loader = DataLoader(test_set, batch_size=2, shuffle=True, **kwargs)
+train_loader = DataLoader(train_set, batch_size=2, shuffle=True, **kwargs)
 test_loader = DataLoader(test_set, batch_size=2, shuffle=False, **kwargs)
 
 n_train = len(train_loader.dataset)
@@ -38,7 +38,6 @@ print("Data samples for testing:", n_test)
 def train_step(data):
     data = data.to(device)
     data = data.view(-1, 27, 512, 512)
-    print(data.shape)
     optimizer.zero_grad()
     recon_batch, mu, logvar = model(data)
     loss = vae.loss_function(recon_batch, data, mu, logvar)
@@ -83,7 +82,7 @@ if __name__ == '__main__':
             ground_truth = torch.mean(d_views[0].to(device), dim=1).view(9*512 * 512)
             test_loss += F.l1_loss(predicted, ground_truth)
             if i == 0:
-                print("Save predicition///:")
+                print("Save predicition:")
                 show_view_sequence(predicted.cpu().view(9, 512, 512), save=True)
 
     test_loss /= len(test_loader.dataset)
