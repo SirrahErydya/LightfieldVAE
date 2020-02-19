@@ -1,6 +1,6 @@
 """
 Train an autoencoder on synthetic lightfield images to predict missing images in the camera array
-Architecture provided by https://www.researchgate.net/figure/Convolutional-variational-autoencoder-architecture-The-deep-learning-network-processes_fig1_329836538
+Architecture losely based on https://arxiv.org/pdf/1701.04949.pdf
 :author: Fenja Kollasch
 """
 from matplotlib import pyplot as plt
@@ -10,7 +10,7 @@ from torch import nn
 from torch.nn import functional as F
 
 NUM_FILTERS = 32
-DENSE_DIM = (32, 249, 249)
+DENSE_DIM = (32, 62, 62)
 DENSE_SIZE = np.prod(DENSE_DIM)
 
 class VAE(nn.Module):
@@ -22,26 +22,32 @@ class VAE(nn.Module):
         self.dims = dims
 
         self.encoder = nn.Sequential(
-            nn.Conv2d(in_channels=dims[0]*dims[1], out_channels=NUM_FILTERS, kernel_size=4, stride=1), nn.ReLU(),
-            nn.Conv2d(in_channels=NUM_FILTERS, out_channels=NUM_FILTERS, kernel_size=4, stride=1), nn.ReLU(),
+            nn.Conv2d(in_channels=dims[0]*dims[1], out_channels=NUM_FILTERS, kernel_size=3, stride=1), nn.ReLU(),
             nn.Conv2d(in_channels=NUM_FILTERS, out_channels=NUM_FILTERS, kernel_size=4, stride=2), nn.ReLU(),
-            nn.Conv2d(in_channels=NUM_FILTERS, out_channels=NUM_FILTERS, kernel_size=4, stride=1)#, nn.Sigmoid()
+            nn.Conv2d(in_channels=NUM_FILTERS, out_channels=NUM_FILTERS, kernel_size=4, stride=2), nn.ReLU(),
+            nn.Conv2d(in_channels=NUM_FILTERS, out_channels=NUM_FILTERS, kernel_size=3, stride=1)#, nn.Sigmoid()
         )
+        self.pool = nn.MaxPool2d(kernel_size=2, stride=2, return_indices=True)
         self.decoder = nn.Sequential(
-            nn.ConvTranspose2d(in_channels=NUM_FILTERS, out_channels=NUM_FILTERS, kernel_size=4, stride=1), nn.ReLU(),
+            nn.ConvTranspose2d(in_channels=NUM_FILTERS, out_channels=NUM_FILTERS, kernel_size=3, stride=1), nn.ReLU(),
             nn.ConvTranspose2d(in_channels=NUM_FILTERS, out_channels=NUM_FILTERS, kernel_size=4, stride=2), nn.ReLU(),
-            nn.ConvTranspose2d(in_channels=NUM_FILTERS, out_channels=NUM_FILTERS, kernel_size=4, stride=1), nn.ReLU(),
-            nn.ConvTranspose2d(in_channels=NUM_FILTERS, out_channels=dims[0]*dims[1], kernel_size=4, stride=1), nn.Sigmoid()
+            nn.ConvTranspose2d(in_channels=NUM_FILTERS, out_channels=NUM_FILTERS, kernel_size=4, stride=2), nn.ReLU(),
+            nn.ConvTranspose2d(in_channels=NUM_FILTERS, out_channels=dims[0]*dims[1], kernel_size=3, stride=1), nn.Sigmoid()
         )
-        self.dense_enc = nn.Linear(DENSE_SIZE, 256)
-        self.dense_dec = nn.Linear(256, DENSE_SIZE)
-        self.mu_layer = nn.Linear(256, latent_size)
-        self.var_layer = nn.Linear(256, latent_size)
-        self.z_layer = nn.Linear(latent_size, 256)
+        self.unpool = nn.MaxUnpool2d(kernel_size=2, stride=2)
+        self.dense_enc = nn.Linear(DENSE_SIZE, 128)
+        self.dense_dec = nn.Linear(128, DENSE_SIZE)
+        self.mu_layer = nn.Linear(128, latent_size)
+        self.var_layer = nn.Linear(128, latent_size)
+        self.z_layer = nn.Linear(latent_size, 128)
+
+        self.unpool_idx = None
 
     def encode(self, x):
             conv = self.encoder(x)
-            enc_input = conv.view(-1, DENSE_SIZE)
+            pool, idx = self.pool(conv)
+            self.unpool_idx = idx
+            enc_input = pool.view(-1, DENSE_SIZE)
             h1 = self.dense_enc(enc_input)
             return self.mu_layer(h1), self.var_layer(h1)
 
@@ -52,7 +58,8 @@ class VAE(nn.Module):
 
     def decode(self, z):
         h3 = self.dense_dec(F.relu(self.z_layer(z))).view(-1, *DENSE_DIM)
-        return self.decoder(h3)
+        unpool = self.unpool(h3, self.unpool_idx)
+        return self.decoder(unpool)
 
     def forward(self, x):
         mu, logvar = self.encode(x)

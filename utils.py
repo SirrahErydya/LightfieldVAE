@@ -34,7 +34,8 @@ def show_view_sequence(views, save=False):
     fig, axes = plt.subplots(1, length, figsize=(20, 20*length))
     for i in range(length):
         img = views[i]
-        axes[i].imshow(img, cmap='gray')
+        img = np.stack((img[0], img[1], img[2]), axis=-1)
+        axes[i].imshow(img)
         axes[i].set_yticklabels([])
         axes[i].set_xticklabels([])
         if save:
