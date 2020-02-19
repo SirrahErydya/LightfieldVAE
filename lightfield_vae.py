@@ -17,7 +17,7 @@ class VAE(nn.Module):
     """
     Basic VAE from the pytorch examples
     """
-    def __init__(self, latent_size=16, dims=(9, 3, 512, 512)):
+    def __init__(self, latent_size=256, dims=(9, 3, 512, 512)):
         super(VAE, self).__init__()
         self.dims = dims
 
@@ -35,11 +35,11 @@ class VAE(nn.Module):
             nn.ConvTranspose2d(in_channels=NUM_FILTERS, out_channels=dims[0]*dims[1], kernel_size=3, stride=1), nn.Sigmoid()
         )
         self.unpool = nn.MaxUnpool2d(kernel_size=2, stride=2)
-        self.dense_enc = nn.Linear(DENSE_SIZE, 128)
-        self.dense_dec = nn.Linear(128, DENSE_SIZE)
-        self.mu_layer = nn.Linear(128, latent_size)
-        self.var_layer = nn.Linear(128, latent_size)
-        self.z_layer = nn.Linear(latent_size, 128)
+        self.dense_enc = nn.Linear(DENSE_SIZE, 1024)
+        self.dense_dec = nn.Linear(1024, DENSE_SIZE)
+        self.mu_layer = nn.Linear(1024, latent_size)
+        self.var_layer = nn.Linear(1024, latent_size)
+        self.z_layer = nn.Linear(latent_size, 1024)
 
         self.unpool_idx = None
 
