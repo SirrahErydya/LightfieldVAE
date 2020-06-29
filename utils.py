@@ -29,7 +29,7 @@ def show_scene(scene):
     plt.show()
 
 
-def show_view_sequence(views, save=False):
+def show_view_sequence(views, save=False, truth=False):
     length = views.shape[0]
     fig, axes = plt.subplots(1, length, figsize=(20, 20*length))
     for i in range(length):
@@ -39,7 +39,8 @@ def show_view_sequence(views, save=False):
         axes[i].set_yticklabels([])
         axes[i].set_xticklabels([])
         if save:
-            skimage.io.imsave(os.path.join('results', 'pred{0}.png'.format(i)), skimage.img_as_ubyte(img))
+            name = 'gt{0}.png'.format(i) if truth else 'pred{0}.png'.format(i)
+            skimage.io.imsave(os.path.join('results', name), skimage.img_as_ubyte(img))
 
     plt.show()
 

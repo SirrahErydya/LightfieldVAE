@@ -8,26 +8,27 @@ import lightfield_vae as vae
 from utils import show_view_sequence
 from torch.utils.data import DataLoader
 from torch.nn import functional as F
+from torchvision import transforms
 
 DATA_ROOT = os.path.join('data', 'SyntheticLightfieldData')
-BATCH_SIZE = 2
-use_cuda = torch.cuda.is_available()
+BATCH_SIZE = 1
+use_cuda = False # torch.cuda.is_available()
 print("Use cuda:", use_cuda)
 kwargs = {'num_workers': 64, 'pin_memory': True} if use_cuda else {}
 
-train_set = hci4d.HCI4D(os.path.join(DATA_ROOT, 'training'))
-test_set = hci4d.HCI4D(os.path.join(DATA_ROOT, 'test'))
+train_set = hci4d.HCI4D(os.path.join(DATA_ROOT, 'training'), transform=hci4d.DownSampling(4))
+test_set = hci4d.HCI4D(os.path.join(DATA_ROOT, 'test'),transform=hci4d.DownSampling(4))
 print("Training set length:", len(train_set))
 print("Test set length:", len(test_set))
 device = torch.device("cuda" if use_cuda else "cpu")
-model = vae.VAE().to(device)
-optimizer = optim.Adam(model.parameters(), lr=1e-4)
+model = vae.VAE(dims=(9, 3, 128, 128)).to(device)
+optimizer = optim.Adam(model.parameters(), lr=0.0001)
 
 # Load horizontal lightfield data
 # TODO: How to handle different directions
 # Todo: Data Augmentation: RandomCrop, RedistColor, Contrast, Brightness, RandomRotate
-train_loader = DataLoader(test_set, batch_size=2, shuffle=True, **kwargs)
-test_loader = DataLoader(test_set, batch_size=2, shuffle=False, **kwargs)
+train_loader = DataLoader(train_set, batch_size=BATCH_SIZE, shuffle=True, **kwargs)
+test_loader = DataLoader(test_set, batch_size=BATCH_SIZE, shuffle=False, **kwargs)
 
 n_train = len(train_loader.dataset)
 n_test = len(test_loader.dataset)
@@ -35,15 +36,20 @@ print("Data samples for training:", n_train)
 print("Data samples for testing:", n_test)
 
 
-def train_step(data):
+def train_step(data, train_loss, batch_idx, log_interval):
     data = data.to(device)
-    data = data.view(-1, 27, 512, 512)
+    #print(data.shape)
+    data = data.view(-1, 27, 128, 128)
     optimizer.zero_grad()
     recon_batch, mu, logvar = model(data)
     loss = vae.loss_function(recon_batch, data, mu, logvar)
     loss.backward()
-    train_loss = loss.item()
+    train_loss += loss.item()
     optimizer.step()
+    if batch_idx % log_interval == 0:
+        print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
+            epoch, batch_idx * len(data), len(train_loader.dataset), 100. * batch_idx / len(train_loader),
+            loss.item() / len(data)))
     return train_loss
 
 
@@ -52,20 +58,16 @@ def train(epoch, log_interval=1):
     train_loss = 0
     for batch_idx, data in enumerate(train_loader):
         h_views, v_views, i_views, d_views, center, gt, mask, index = data
-        loss_h = train_step(h_views)
-        loss_v = train_step(v_views)
-        train_loss += ((loss_h + loss_v) / 2)
-        if batch_idx % log_interval == 0:
-            print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
-                epoch, batch_idx * (len(h_views)), n_train, 100. * batch_idx / len(train_loader),
-                       (loss_h + loss_v) / (len(h_views) + len(v_views))))
+        h_loss = train_step(h_views, train_loss, batch_idx, log_interval)
+        v_loss = train_step(v_views, train_loss, batch_idx, log_interval)
+        train_loss += (h_loss + v_loss)/2
 
     print('====> Epoch: {} Average loss: {:.4f}'.format(
         epoch, train_loss / len(train_loader.dataset)))
 
 
 if __name__ == '__main__':
-    for epoch in range(1, 51):
+    for epoch in range(1, 11):
         train(epoch, log_interval=5)
 
     model.eval()
@@ -75,16 +77,17 @@ if __name__ == '__main__':
             h_views, v_views, i_views, d_views, center, gt, mask, index = data
             data_h = h_views[0].to(device)
             data_v = v_views[0].to(device)
-            mu_h, var_h = model.encode(data_h.view(-1, 27, 512, 512))
-            mu_v, var_v = model.encode(data_v.view(-1, 27, 512, 512))
+            mu_h, var_h = model.encode(data_h.view(-1, 27, 128, 128))
+            mu_v, var_v = model.encode(data_v.view(-1, 27, 128, 128))
             z_h, z_v = model.reparameterize(mu_h, var_h), model.reparameterize(mu_v, var_v)
             predicted = model.decode(z_h + z_v)
-            ground_truth = d_views[0].to(device).view(-1, 27, 512, 512)
+            ground_truth = d_views[0].to(device).view(-1, 27, 128, 128)
             test_loss += F.l1_loss(predicted, ground_truth)
             print(predicted.shape)
             if i == 0:
                 print("Save predicition:")
-                show_view_sequence(predicted.cpu().view(9, 3, 512, 512), save=True)
+                show_view_sequence(predicted.cpu().view(9, 3, 128, 128), save=True)
+                show_view_sequence(d_views.view(9, 3, 128, 128), save=True, truth=True)
 
     test_loss /= len(test_loader.dataset)
     print('====> Test set loss: {:.4f}'.format(test_loss))

@@ -9,37 +9,37 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 
-NUM_FILTERS = 32
-DENSE_DIM = (32, 62, 62)
+NUM_FILTERS = 16
+DENSE_DIM = (16, 60, 60)
 DENSE_SIZE = np.prod(DENSE_DIM)
 
 class VAE(nn.Module):
     """
     Basic VAE from the pytorch examples
     """
-    def __init__(self, latent_size=256, dims=(9, 3, 512, 512)):
+    def __init__(self, latent_size=2**15, bottleneck=2**14, dims=(9, 3, 512, 512)):
         super(VAE, self).__init__()
         self.dims = dims
 
         self.encoder = nn.Sequential(
             nn.Conv2d(in_channels=dims[0]*dims[1], out_channels=NUM_FILTERS, kernel_size=3, stride=1), nn.ReLU(),
-            nn.Conv2d(in_channels=NUM_FILTERS, out_channels=NUM_FILTERS, kernel_size=4, stride=2), nn.ReLU(),
-            nn.Conv2d(in_channels=NUM_FILTERS, out_channels=NUM_FILTERS, kernel_size=4, stride=2), nn.ReLU(),
+            nn.Conv2d(in_channels=NUM_FILTERS, out_channels=NUM_FILTERS, kernel_size=3, stride=1), nn.ReLU(),
+            nn.Conv2d(in_channels=NUM_FILTERS, out_channels=NUM_FILTERS, kernel_size=3, stride=1), nn.ReLU(),
             nn.Conv2d(in_channels=NUM_FILTERS, out_channels=NUM_FILTERS, kernel_size=3, stride=1)#, nn.Sigmoid()
         )
         self.pool = nn.MaxPool2d(kernel_size=2, stride=2, return_indices=True)
         self.decoder = nn.Sequential(
             nn.ConvTranspose2d(in_channels=NUM_FILTERS, out_channels=NUM_FILTERS, kernel_size=3, stride=1), nn.ReLU(),
-            nn.ConvTranspose2d(in_channels=NUM_FILTERS, out_channels=NUM_FILTERS, kernel_size=4, stride=2), nn.ReLU(),
-            nn.ConvTranspose2d(in_channels=NUM_FILTERS, out_channels=NUM_FILTERS, kernel_size=4, stride=2), nn.ReLU(),
+            nn.ConvTranspose2d(in_channels=NUM_FILTERS, out_channels=NUM_FILTERS, kernel_size=3, stride=1), nn.ReLU(),
+            nn.ConvTranspose2d(in_channels=NUM_FILTERS, out_channels=NUM_FILTERS, kernel_size=3, stride=1), nn.ReLU(),
             nn.ConvTranspose2d(in_channels=NUM_FILTERS, out_channels=dims[0]*dims[1], kernel_size=3, stride=1), nn.Sigmoid()
         )
         self.unpool = nn.MaxUnpool2d(kernel_size=2, stride=2)
-        self.dense_enc = nn.Linear(DENSE_SIZE, 1024)
-        self.dense_dec = nn.Linear(1024, DENSE_SIZE)
-        self.mu_layer = nn.Linear(1024, latent_size)
-        self.var_layer = nn.Linear(1024, latent_size)
-        self.z_layer = nn.Linear(latent_size, 1024)
+        self.dense_enc = nn.Linear(DENSE_SIZE, latent_size)
+        self.dense_dec = nn.Linear(latent_size, DENSE_SIZE)
+        self.mu_layer = nn.Linear(latent_size, bottleneck)
+        self.var_layer = nn.Linear(latent_size, bottleneck)
+        self.z_layer = nn.Linear(bottleneck, latent_size)
 
         self.unpool_idx = None
 
@@ -47,6 +47,7 @@ class VAE(nn.Module):
             conv = self.encoder(x)
             pool, idx = self.pool(conv)
             self.unpool_idx = idx
+            print(pool.shape)
             enc_input = pool.view(-1, DENSE_SIZE)
             h1 = self.dense_enc(enc_input)
             return self.mu_layer(h1), self.var_layer(h1)
