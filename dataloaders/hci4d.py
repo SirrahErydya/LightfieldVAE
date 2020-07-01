@@ -75,6 +75,7 @@ class HCI4D(Dataset):
             '.jpg') or f.endswith('.jpeg')) and 'normals' not in f and
             'mask' not in f and 'objectids' not in f and 'unused' not in f]
         imgs.sort()
+        #print(imgs)
 
         # compute indices of cross setup
         w, h = self.nviews
@@ -196,7 +197,6 @@ class HCI4D(Dataset):
         if self.transform:
             data = copy.deepcopy(data)
             data = self.transform(data)
-
         return data
 
     def save_batch(self, path, index, result=None, uncert=None, runtime=None):

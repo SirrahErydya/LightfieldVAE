@@ -47,7 +47,6 @@ class VAE(nn.Module):
             conv = self.encoder(x)
             pool, idx = self.pool(conv)
             self.unpool_idx = idx
-            print(pool.shape)
             enc_input = pool.view(-1, DENSE_SIZE)
             h1 = self.dense_enc(enc_input)
             return self.mu_layer(h1), self.var_layer(h1)

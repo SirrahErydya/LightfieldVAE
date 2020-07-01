@@ -1,7 +1,7 @@
 # Training and testing routines similar to the PyTorch implementation
 # but modified for lightfield arrays
 import os
-from dataloaders import hci4d
+from dataloaders import hci4d, lfsequence
 import torch
 from torch import optim
 import lightfield_vae as vae
@@ -11,18 +11,21 @@ from torch.nn import functional as F
 from torchvision import transforms
 
 DATA_ROOT = os.path.join('data', 'SyntheticLightfieldData')
-BATCH_SIZE = 1
-use_cuda = False # torch.cuda.is_available()
+BATCH_SIZE = 6
+use_cuda = torch.cuda.is_available()
 print("Use cuda:", use_cuda)
 kwargs = {'num_workers': 64, 'pin_memory': True} if use_cuda else {}
 
-train_set = hci4d.HCI4D(os.path.join(DATA_ROOT, 'training'), transform=hci4d.DownSampling(4))
+train_set = lfsequence.LFSequence(os.path.join(DATA_ROOT, 'training'), transform=hci4d.DownSampling(4))
+mini_train_set = lfsequence.LFSequence(os.path.join(DATA_ROOT, 'test'), transform=hci4d.DownSampling(4))
 test_set = hci4d.HCI4D(os.path.join(DATA_ROOT, 'test'),transform=hci4d.DownSampling(4))
 print("Training set length:", len(train_set))
 print("Test set length:", len(test_set))
-device = torch.device("cuda" if use_cuda else "cpu")
-model = vae.VAE(dims=(9, 3, 128, 128)).to(device)
-optimizer = optim.Adam(model.parameters(), lr=0.0001)
+device = torch.device("cuda:1" if use_cuda else "cpu")
+model = vae.VAE(dims=(9, 3, 128, 128), latent_size=2^14, bottleneck=2**13)
+print("CPU model created")
+model.to(device)
+optimizer = optim.Adam(model.parameters(), lr=0.001)
 
 # Load horizontal lightfield data
 # TODO: How to handle different directions
@@ -36,38 +39,30 @@ print("Data samples for training:", n_train)
 print("Data samples for testing:", n_test)
 
 
-def train_step(data, train_loss, batch_idx, log_interval):
-    data = data.to(device)
-    #print(data.shape)
-    data = data.view(-1, 27, 128, 128)
-    optimizer.zero_grad()
-    recon_batch, mu, logvar = model(data)
-    loss = vae.loss_function(recon_batch, data, mu, logvar)
-    loss.backward()
-    train_loss += loss.item()
-    optimizer.step()
-    if batch_idx % log_interval == 0:
-        print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
-            epoch, batch_idx * len(data), len(train_loader.dataset), 100. * batch_idx / len(train_loader),
-            loss.item() / len(data)))
-    return train_loss
-
-
-def train(epoch, log_interval=1):
+def train(epoch, log_interval=2):
     model.train()
     train_loss = 0
     for batch_idx, data in enumerate(train_loader):
-        h_views, v_views, i_views, d_views, center, gt, mask, index = data
-        h_loss = train_step(h_views, train_loss, batch_idx, log_interval)
-        v_loss = train_step(v_views, train_loss, batch_idx, log_interval)
-        train_loss += (h_loss + v_loss)/2
+        data = data.to(device)
+        data = data.view(-1, 27, 128, 128)
+        optimizer.zero_grad()
+        recon_batch, mu, logvar = model(data)
+        loss = vae.loss_function(recon_batch, data, mu, logvar)
+        loss.backward()
+        train_loss += loss.item()
+        optimizer.step()
+        if batch_idx % log_interval == 0:
+            print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
+                epoch, batch_idx * len(data), len(train_loader.dataset),
+                100. * batch_idx / len(train_loader),
+                loss.item() / len(data)))
 
     print('====> Epoch: {} Average loss: {:.4f}'.format(
-        epoch, train_loss / len(train_loader.dataset)))
+          epoch, train_loss / len(train_loader.dataset)))
 
 
 if __name__ == '__main__':
-    for epoch in range(1, 11):
+    for epoch in range(1, 51):
         train(epoch, log_interval=5)
 
     model.eval()
