@@ -24,7 +24,7 @@ device = torch.device("cuda:1" if use_cuda else "cpu")
 model = vae.VAE(dims=(9, 3, 128, 128), latent_size=2**11, bottleneck=2**10)
 print("CPU model created")
 model.to(device)
-optimizer = optim.Adam(model.parameters(), lr=0.001)
+optimizer = optim.Adam(model.parameters(), lr=0.0001)
 # Load horizontal lightfield data
 # TODO: How to handle different directions
 # Todo: Data Augmentation: RandomCrop, RedistColor, Contrast, Brightness, RandomRotate
@@ -60,7 +60,7 @@ def train(epoch, log_interval=2):
 
 
 if __name__ == '__main__':
-    for epoch in range(1, 11):
+    for epoch in range(1, 151):
         train(epoch, log_interval=3)
 
     model.eval()
