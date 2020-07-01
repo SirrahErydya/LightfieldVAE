@@ -12,7 +12,7 @@ from torchvision import transforms
 
 DATA_ROOT = os.path.join('data', 'SyntheticLightfieldData')
 BATCH_SIZE = 1
-use_cuda = False # torch.cuda.is_available()
+use_cuda = torch.cuda.is_available()
 print("Use cuda:", use_cuda)
 kwargs = {'num_workers': 64, 'pin_memory': True} if use_cuda else {}
 
@@ -21,7 +21,12 @@ test_set = hci4d.HCI4D(os.path.join(DATA_ROOT, 'test'),transform=hci4d.DownSampl
 print("Training set length:", len(train_set))
 print("Test set length:", len(test_set))
 device = torch.device("cuda" if use_cuda else "cpu")
-model = vae.VAE(dims=(9, 3, 128, 128)).to(device)
+model = vae.VAE(dims=(9, 3, 128, 128))
+print("CPU model created")
+if use_cuda:
+    print("Let's use", torch.cuda.device_count(), "GPUs!")
+    model = torch.nn.DataParallel(model)
+#model.to(device)
 optimizer = optim.Adam(model.parameters(), lr=0.0001)
 
 # Load horizontal lightfield data
@@ -37,7 +42,7 @@ print("Data samples for testing:", n_test)
 
 
 def train_step(data, train_loss, batch_idx, log_interval):
-    data = data.to(device)
+   # data = data.to(device)
     #print(data.shape)
     data = data.view(-1, 27, 128, 128)
     optimizer.zero_grad()
