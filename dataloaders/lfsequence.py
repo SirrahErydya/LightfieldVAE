@@ -31,16 +31,27 @@ class LFSequence(hci4d.HCI4D):
         view_idx = index % len(self)
 
         assert scene_idx == view_idx or view_idx == scene_idx + len(self.scenes)
+        h_views, v_views, i_views, d_views, _, _, _, _ =  self.get_scene(scene_idx)
 
+        if scene_idx == view_idx:
+            return h_views
+        return v_views
+
+    def get_scene(self, index):
         if self.cache:
-            data = self.data[scene_idx]
+            data = self.data[index]
         else:
-            data = self.load_scene(scene_idx)
+            data = self.load_scene(index)
 
         if self.transform:
             data = copy.deepcopy(data)
             data = self.transform(data)
+        return data
 
-        if scene_idx == view_idx:
-            return data[0]
-        return data[1]
+    def ground_truth(self, index):
+        """
+        Get the ground truth (aka the diagonal) to a scene
+        :param index: scene index
+        """
+        h_views, v_views, i_views, d_views, _, _, _, _ =  self.get_scene(index)
+        return d_views
