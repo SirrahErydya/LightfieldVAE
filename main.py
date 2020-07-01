@@ -26,7 +26,6 @@ model = vae.VAE(dims=(9, 3, 128, 128), latent_size=2^14, bottleneck=2**13)
 print("CPU model created")
 model.to(device)
 optimizer = optim.Adam(model.parameters(), lr=0.001)
-
 # Load horizontal lightfield data
 # TODO: How to handle different directions
 # Todo: Data Augmentation: RandomCrop, RedistColor, Contrast, Brightness, RandomRotate
@@ -37,6 +36,7 @@ n_train = len(train_loader.dataset)
 n_test = len(test_loader.dataset)
 print("Data samples for training:", n_train)
 print("Data samples for testing:", n_test)
+
 
 
 def train(epoch, log_interval=2):
@@ -63,7 +63,7 @@ def train(epoch, log_interval=2):
 
 if __name__ == '__main__':
     for epoch in range(1, 51):
-        train(epoch, log_interval=5)
+        train(epoch, log_interval=3)
 
     model.eval()
     test_loss = 0
