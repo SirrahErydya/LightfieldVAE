@@ -67,13 +67,13 @@ if __name__ == '__main__':
     test_loss = 0
     with torch.no_grad():
         h_views, v_views, i_views, d_views, center, gt, mask, index = test_set.get_scene(0)
-        data_h = h_views[0].to(device)
-        data_v = v_views[0].to(device)
+        data_h = torch.tensor(h_views, device=device).float()
+        data_v = torch.tensor(v_views, device=device).float()
         mu_h, var_h = model.encode(data_h.view(-1, 27, 128, 128))
         mu_v, var_v = model.encode(data_v.view(-1, 27, 128, 128))
         z_h, z_v = model.reparameterize(mu_h, var_h), model.reparameterize(mu_v, var_v)
         predicted = model.decode(z_h + z_v)
-        ground_truth = d_views[0].to(device).view(-1, 27, 128, 128)
+        ground_truth = torch.tensor(d_views, device=device).float().view(-1, 27, 128, 128)
         test_loss += F.l1_loss(predicted, ground_truth)
         print(predicted.shape)
         print("Save predicition:")
