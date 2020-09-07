@@ -9,57 +9,103 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 
-NUM_FILTERS = 16
-DENSE_DIM = (16, 60, 60)
+
+DENSE_DIM = (64, 30, 30)
 DENSE_SIZE = np.prod(DENSE_DIM)
 
+
+class ResidualBlock(nn.Module):
+
+    def __init__(self, in_channels, out_channels, kernel_size, stride, threed=False, transpose=False):
+        super(ResidualBlock, self).__init__()
+        self.lr = nn.LeakyReLU()
+        if threed:
+            self.bn = nn.BatchNorm3d(in_channels)
+            if transpose:
+                self.conv1 = nn.ConvTranspose3d(in_channels, out_channels, kernel_size=kernel_size, stride=stride)
+                self.conv2 = nn.ConvTranspose3d(in_channels, out_channels, kernel_size=kernel_size, stride=stride)
+            else:
+                self.conv1 = nn.Conv3d(in_channels, out_channels, kernel_size=kernel_size, stride=stride)
+                self.conv2 = nn.Conv3d(in_channels, out_channels, kernel_size=kernel_size, stride=stride)
+        else:
+            self.bn = nn.BatchNorm2d(in_channels)
+            if transpose:
+                self.conv1 = nn.ConvTranspose2d(in_channels, out_channels, kernel_size=kernel_size, stride=stride)
+                self.conv2 = nn.ConvTranspose2d(in_channels, out_channels, kernel_size=kernel_size, stride=stride)
+            else:
+                self.conv1 = nn.Conv2d(in_channels, out_channels, kernel_size=kernel_size, stride=stride)
+                self.conv2 = nn.Conv2d(in_channels, out_channels, kernel_size=kernel_size, stride=stride)
+
+    def forward(self, x):
+        normed = self.bn(x)
+        return self.lr(self.conv1(normed)) + self.conv2(normed)
+
+
+class Encoder(nn.Module):
+
+    def __init__(self, channels, threed):
+        super(Encoder, self).__init__()
+        self.grp1 = nn.Sequential(
+            ResidualBlock(in_channels=channels, out_channels=16, kernel_size=3, stride=1, threed=threed),
+            ResidualBlock(in_channels=16, out_channels=32, kernel_size=3, stride=1, threed=threed),
+            ResidualBlock(in_channels=32, out_channels=64, kernel_size=4, stride=2, threed=threed),  # 128 x 61 x61
+        )
+
+    def forward(self, x):
+        x1 = self.grp1(x)
+        return x1
+
+
+class Decoder(nn.Module):
+
+    def __init__(self, channels, threed):
+        super(Decoder, self).__init__()
+        self.grp1 = nn.Sequential(
+            ResidualBlock(in_channels=64, out_channels=32, kernel_size=4, stride=2, threed=threed, transpose=True),
+            ResidualBlock(in_channels=32, out_channels=16, kernel_size=3, stride=1, threed=threed, transpose=True),
+            ResidualBlock(in_channels=16, out_channels=channels, kernel_size=3, stride=1, threed=threed, transpose=True)
+        )
+
+    def forward(self, x):
+        x1 = self.grp1(x)
+        return x1
+
+
 class VAE(nn.Module):
-    """
-    Basic VAE from the pytorch examples
-    """
-    def __init__(self, latent_size=2**15, bottleneck=2**14, dims=(9, 3, 512, 512)):
+    def __init__(self, dims=(9, 3, 512, 512), threed=False):
         super(VAE, self).__init__()
         self.dims = dims
+        self.imgs = dims[0]
+        self.channels = dims[1] if threed else dims[0]*dims[1]
+        self.width = dims[2]
+        self.height = dims[3]
+        self.threed = threed
 
-        self.encoder = nn.Sequential(
-            nn.Conv2d(in_channels=dims[0]*dims[1], out_channels=NUM_FILTERS, kernel_size=3, stride=1), nn.ReLU(),
-            nn.Conv2d(in_channels=NUM_FILTERS, out_channels=NUM_FILTERS, kernel_size=3, stride=1), nn.ReLU(),
-            nn.Conv2d(in_channels=NUM_FILTERS, out_channels=NUM_FILTERS, kernel_size=3, stride=1), nn.ReLU(),
-            nn.Conv2d(in_channels=NUM_FILTERS, out_channels=NUM_FILTERS, kernel_size=3, stride=1)#, nn.Sigmoid()
-        )
-        self.pool = nn.MaxPool2d(kernel_size=2, stride=2, return_indices=True)
-        self.decoder = nn.Sequential(
-            nn.ConvTranspose2d(in_channels=NUM_FILTERS, out_channels=NUM_FILTERS, kernel_size=3, stride=1), nn.ReLU(),
-            nn.ConvTranspose2d(in_channels=NUM_FILTERS, out_channels=NUM_FILTERS, kernel_size=3, stride=1), nn.ReLU(),
-            nn.ConvTranspose2d(in_channels=NUM_FILTERS, out_channels=NUM_FILTERS, kernel_size=3, stride=1), nn.ReLU(),
-            nn.ConvTranspose2d(in_channels=NUM_FILTERS, out_channels=dims[0]*dims[1], kernel_size=3, stride=1), nn.Sigmoid()
-        )
-        self.unpool = nn.MaxUnpool2d(kernel_size=2, stride=2)
-        self.dense_enc = nn.Linear(DENSE_SIZE, latent_size)
-        self.dense_dec = nn.Linear(latent_size, DENSE_SIZE)
-        self.mu_layer = nn.Linear(latent_size, bottleneck)
-        self.var_layer = nn.Linear(latent_size, bottleneck)
-        self.z_layer = nn.Linear(bottleneck, latent_size)
-
-        self.unpool_idx = None
+        self.encoder = Encoder(self.channels, threed)
+        self.decoder = Decoder(self.channels, threed)
+        self.mu_layer = nn.Conv2d(64, 64, 3, 2)  # 64 x 30 x 30
+        self.var_layer = nn.Conv2d(64, 64, 3, 2)
+        self.z_layer = nn.ConvTranspose2d(64, 64, 3, 2)
 
     def encode(self, x):
-            conv = self.encoder(x)
-            pool, idx = self.pool(conv)
-            self.unpool_idx = idx
-            enc_input = pool.view(-1, DENSE_SIZE)
-            h1 = self.dense_enc(enc_input)
-            return self.mu_layer(h1), self.var_layer(h1)
+        if self.threed:
+            x = x.view(-1, self.channels, self.imgs, self.width, self.height)
+        else:
+            x = x.view(-1, self.channels, self.width, self.height)
+        h1 = self.encoder(x)
+        return self.mu_layer(h1).view(-1, DENSE_SIZE), self.var_layer(h1).view(-1, DENSE_SIZE)
 
     def reparameterize(self, mu, logvar):
-        std = torch.exp(0.5*logvar)
-        eps = torch.randn_like(std)
-        return mu + eps*std
+        if self.training:
+            std = torch.exp(0.5 * logvar)
+            eps = torch.randn_like(std)
+            return mu + eps * std
+        return mu
 
     def decode(self, z):
-        h3 = self.dense_dec(F.relu(self.z_layer(z))).view(-1, *DENSE_DIM)
-        unpool = self.unpool(h3, self.unpool_idx)
-        return self.decoder(unpool)
+        h3 = self.z_layer(z.view(-1, *DENSE_DIM))
+        dec = self.decoder(h3)
+        return dec.view(-1, *self.dims)
 
     def forward(self, x):
         mu, logvar = self.encode(x)
@@ -67,16 +113,16 @@ class VAE(nn.Module):
         return self.decode(z), mu, logvar
 
 
-# Reconstruction + KL divergence losses summed over all elements and batch
 def loss_function(recon_x, x, mu, logvar):
-    BCE = F.binary_cross_entropy(recon_x, x, reduction='sum')
+    recon = F.mse_loss(recon_x, x, reduction='sum')
 
     # see Appendix B from VAE paper:
     # Kingma and Welling. Auto-Encoding Variational Bayes. ICLR, 2014
     # https://arxiv.org/abs/1312.6114
     # 0.5 * sum(1 + log(sigma^2) - mu^2 - sigma^2)
-    KLD = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
+    KLD = -0.5 * torch.sum(1 + logvar - mu**2 - logvar.exp())
+    return recon #+ KLD
 
-    return BCE + KLD
+
 
 

@@ -29,20 +29,28 @@ def show_scene(scene):
     plt.show()
 
 
-def show_view_sequence(views, save=False, truth=False):
+def show_view_sequence(views, fn, savepath=None):
     length = views.shape[0]
     fig, axes = plt.subplots(1, length, figsize=(20, 20*length))
     for i in range(length):
         img = views[i]
         img = np.stack((img[0], img[1], img[2]), axis=-1)
+        img = np.clip(img, -1, 1)
         axes[i].imshow(img)
         axes[i].set_yticklabels([])
         axes[i].set_xticklabels([])
-        if save:
-            name = 'gt{0}.png'.format(i) if truth else 'pred{0}.png'.format(i)
-            skimage.io.imsave(os.path.join('results', name), skimage.img_as_ubyte(img))
+        if savepath:
+            name = '{0}{1}.png'.format(fn, i)
+            skimage.io.imsave(os.path.join(savepath, name), skimage.img_as_ubyte(img))
 
     plt.show()
+
+
+def plot_loss(loss, savepath):
+    plt.plot(loss)
+    plt.xlabel = "Epochs"
+    plt.ylabel = "Average loss"
+    plt.savefig(os.path.join(savepath, "loss.png"))
 
 
 def show_ground_truth(scene):
