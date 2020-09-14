@@ -10,7 +10,8 @@ from torch import nn
 from torch.nn import functional as F
 
 
-DENSE_DIM = (64, 30, 30)
+#DENSE_DIM = (64, 30, 30)
+DENSE_DIM = (64, 2, 30, 30) # Uncomment for 3D
 DENSE_SIZE = np.prod(DENSE_DIM)
 
 
@@ -38,17 +39,20 @@ class ResidualBlock(nn.Module):
 
     def forward(self, x):
         normed = self.bn(x)
-        return self.lr(self.conv1(normed)) + self.conv2(normed)
+        out = self.lr(self.conv1(normed)) + self.conv2(normed)
+        #print(out.shape)
+        return out
 
 
 class Encoder(nn.Module):
 
     def __init__(self, channels, threed):
         super(Encoder, self).__init__()
+        last_kernel = (3, 4, 4) if threed else 4
         self.grp1 = nn.Sequential(
             ResidualBlock(in_channels=channels, out_channels=16, kernel_size=3, stride=1, threed=threed),
             ResidualBlock(in_channels=16, out_channels=32, kernel_size=3, stride=1, threed=threed),
-            ResidualBlock(in_channels=32, out_channels=64, kernel_size=4, stride=2, threed=threed),  # 128 x 61 x61
+            ResidualBlock(in_channels=32, out_channels=64, kernel_size=last_kernel, stride=2, threed=threed),  # 64 x 61 x61
         )
 
     def forward(self, x):
@@ -60,8 +64,9 @@ class Decoder(nn.Module):
 
     def __init__(self, channels, threed):
         super(Decoder, self).__init__()
+        first_kernel = (3, 4, 4) if threed else 4
         self.grp1 = nn.Sequential(
-            ResidualBlock(in_channels=64, out_channels=32, kernel_size=4, stride=2, threed=threed, transpose=True),
+            ResidualBlock(in_channels=64, out_channels=32, kernel_size=first_kernel, stride=2, threed=threed, transpose=True),
             ResidualBlock(in_channels=32, out_channels=16, kernel_size=3, stride=1, threed=threed, transpose=True),
             ResidualBlock(in_channels=16, out_channels=channels, kernel_size=3, stride=1, threed=threed, transpose=True)
         )
@@ -83,9 +88,14 @@ class VAE(nn.Module):
 
         self.encoder = Encoder(self.channels, threed)
         self.decoder = Decoder(self.channels, threed)
-        self.mu_layer = nn.Conv2d(64, 64, 3, 2)  # 64 x 30 x 30
-        self.var_layer = nn.Conv2d(64, 64, 3, 2)
-        self.z_layer = nn.ConvTranspose2d(64, 64, 3, 2)
+        if threed:
+            self.mu_layer = nn.Conv3d(64, 64, (1, 3, 3), (1, 2, 2))  # 64 x 1 x 30 x 30
+            self.var_layer = nn.Conv3d(64, 64, (1, 3, 3), (1, 2, 2))
+            self.z_layer = nn.ConvTranspose3d(64, 64, (1, 3, 3), (1, 2, 2))
+        else:
+            self.mu_layer = nn.Conv2d(64, 64, 3, 2)  # 64 x 30 x 30
+            self.var_layer = nn.Conv2d(64, 64, 3, 2)
+            self.z_layer = nn.ConvTranspose2d(64, 64, 3, 2)
 
     def encode(self, x):
         if self.threed:
@@ -121,7 +131,7 @@ def loss_function(recon_x, x, mu, logvar):
     # https://arxiv.org/abs/1312.6114
     # 0.5 * sum(1 + log(sigma^2) - mu^2 - sigma^2)
     KLD = -0.5 * torch.sum(1 + logvar - mu**2 - logvar.exp())
-    return recon #+ KLD
+    return recon + KLD
 
 
 

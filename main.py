@@ -5,7 +5,7 @@ from dataloaders import hci4d, lfsequence
 import torch
 from torch import optim
 import lightfield_vae as vae
-from utils import show_view_sequence, plot_loss
+from utils import show_view_sequence, plot_loss, save_stats
 from torch.utils.data import DataLoader 
 from torch.nn import functional as F
 from torchvision import transforms
@@ -13,13 +13,13 @@ from matplotlib import pyplot as plt
 
 DATA_ROOT = os.path.join('data', 'SyntheticLightfieldData')
 BATCH_SIZE = 6
-MODEL_NAME = "model_mse_2d"
-EPOCHS = 200
+MODEL_NAME = "model_kde_2d"
+EPOCHS = 500
 use_cuda = torch.cuda.is_available()
 print("Use cuda:", use_cuda)
 kwargs = {'num_workers': 64, 'pin_memory': True} if use_cuda else {}
 device = torch.device("cuda:0" if use_cuda else "cpu")
-model = vae.VAE(dims=(9, 3, 128, 128))
+model = vae.VAE(dims=(9, 3, 128, 128), threed=True)
 print("CPU model created")
 model.to(device)
 optimizer = optim.Adam(model.parameters(), lr=0.0001)
@@ -127,4 +127,5 @@ if __name__ == '__main__':
 
     test_loss /= len(test_loader.dataset)
     print('====> Test set loss: {:.4f}'.format(test_loss))
+    save_stats("training_stats.csv", MODEL_NAME, "MSE+KDE", EPOCHS*4, "{:.4f}".format(test_loss))
 

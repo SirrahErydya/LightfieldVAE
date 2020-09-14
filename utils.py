@@ -2,6 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import skimage.io
 import os
+import csv
 
 def show_scene(scene):
     # The scene was observed by a 9x9 camera array
@@ -44,6 +45,12 @@ def show_view_sequence(views, fn, savepath=None):
             skimage.io.imsave(os.path.join(savepath, name), skimage.img_as_ubyte(img))
 
     plt.show()
+
+
+def save_stats(filename, model_name, loss_function, epochs, loss):
+    with open(filename, 'a+', newline='') as csvfile:
+        writer = csv.writer(csvfile, delimiter=';')
+        writer.writerow([model_name, loss_function, epochs, loss])
 
 
 def plot_loss(loss, savepath):
