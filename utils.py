@@ -4,7 +4,7 @@ import skimage.io
 import os
 import csv
 
-def show_scene(scene):
+def show_scene(scene, show_dia=True):
     # The scene was observed by a 9x9 camera array
     # Thus the loader contains 9 horizontal, 9 vertical, 9 increasing diagonal, and 9 decreasing diagonal images
     h_views, v_views, i_views, d_views, center, gt, mask, index = scene
@@ -17,9 +17,9 @@ def show_scene(scene):
                 img = v_views[y]
             elif y == 4:
                 img = h_views[x]
-            elif x == y:
+            elif x == y and show_dia:
                 img = d_views[x]
-            elif x+y == 8:
+            elif x+y == 8 and show_dia:
                 img = i_views[y]
             else:
                 img = np.zeros((3, 512, 512))

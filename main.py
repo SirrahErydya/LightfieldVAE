@@ -13,7 +13,7 @@ from matplotlib import pyplot as plt
 
 DATA_ROOT = os.path.join('data', 'SyntheticLightfieldData')
 BATCH_SIZE = 6
-MODEL_NAME = "model_kde_2d"
+MODEL_NAME = "model_mse_3d"
 EPOCHS = 500
 use_cuda = torch.cuda.is_available()
 print("Use cuda:", use_cuda)
@@ -36,6 +36,7 @@ def train(train_loader, loader_num, log_interval=2):
             optimizer.zero_grad()
             recon_batch, mu, logvar = model(data)
             loss = vae.loss_function(recon_batch, data, mu, logvar)
+            #loss = F.l1_loss(recon_batch, data)
             loss.backward()
             train_loss += loss.item()
             optimizer.step()
@@ -127,5 +128,5 @@ if __name__ == '__main__':
 
     test_loss /= len(test_loader.dataset)
     print('====> Test set loss: {:.4f}'.format(test_loss))
-    save_stats("training_stats.csv", MODEL_NAME, "MSE+KDE", EPOCHS*4, "{:.4f}".format(test_loss))
+    save_stats("training_stats.csv", MODEL_NAME, "MSE", EPOCHS*4, "{:.4f}".format(test_loss))
 

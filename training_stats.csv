@@ -1,0 +1,12 @@
+Model,Loss function,Epochs,L1 test loss
+model_mse_2d,MSE,800,0.0496
+model_mse_3d,MSE,800,0.0543
+model_kde_3d,MSE+KDE,1600,0.062
+model_kde_2d,MSE+KDE,1600,0.0531
+model_kde_2d,MSE+KDE,2000,0.0507
+model_kde_2d,MSE+KDE,2000,0.0507
+model_l1_3d,L1,2000,0.0622
+model_l1_2d,L1,800,0.0675
+model_l1_2d,L1,2000,0.064
+model_mse_2d,MSE,2000,0.0568
+model_mse_3d;MSE;2000;0.0636
