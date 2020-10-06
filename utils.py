@@ -1,6 +1,8 @@
 import matplotlib.pyplot as plt
+from matplotlib import image as pltimg
 import numpy as np
 import skimage.io
+from skimage.color import rgb2gray
 import os
 import csv
 
@@ -30,21 +32,22 @@ def show_scene(scene, show_dia=True):
     plt.show()
 
 
-def show_view_sequence(views, fn, savepath=None):
+def show_view_sequence(views, fn, savepath=None, cmap=None):
     length = views.shape[0]
-    fig, axes = plt.subplots(1, length, figsize=(20, 20*length))
+    fig = plt.figure(figsize=(views.shape[2], views.shape[3]))
     for i in range(length):
         img = views[i]
         img = np.stack((img[0], img[1], img[2]), axis=-1)
         img = np.clip(img, -1, 1)
-        axes[i].imshow(img)
-        axes[i].set_yticklabels([])
-        axes[i].set_xticklabels([])
         if savepath:
             name = '{0}{1}.png'.format(fn, i)
-            skimage.io.imsave(os.path.join(savepath, name), skimage.img_as_ubyte(img))
-
-    plt.show()
+            if cmap == "coolwarm":
+                im = plt.imshow(rgb2gray(img), cmap=cmap)
+                plt.colorbar(im)
+                plt.savefig(os.path.join(savepath, name), cmap=cmap)
+                plt.show()
+            else:
+                skimage.io.imsave(os.path.join(savepath, name), skimage.img_as_ubyte(img))
 
 
 def save_stats(filename, model_name, loss_function, epochs, loss):
