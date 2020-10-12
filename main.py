@@ -74,8 +74,8 @@ def train(train_loader, loader_num, loss_function, log_interval=2):
 
 if __name__ == '__main__':
     # Setup and models
-    epochs = [200]#, 300, 500]
-    loss_functions = ["MSE"]#, "KLD", "L1"]
+    epochs = [200, 300, 500]
+    loss_functions = ["MSE", "KLD", "L1"]
 
     # Giant Training loop
     for lf in loss_functions:
