@@ -8,8 +8,6 @@ import lightfield_vae as vae
 from utils import show_view_sequence, plot_loss, save_stats
 from torch.utils.data import DataLoader 
 from torch.nn import functional as F
-from torchvision import transforms
-from matplotlib import pyplot as plt
 
 DATA_ROOT = os.path.join('data', 'SyntheticLightfieldData')
 BATCH_SIZE = 6
@@ -76,16 +74,16 @@ def train(train_loader, loader_num, loss_function, log_interval=2):
 
 if __name__ == '__main__':
     # Setup and models
-    epochs = [200, 300, 500]
-    loss_functions = ["MSE", "KLD", "L1"]
+    epochs = [200]#, 300, 500]
+    loss_functions = ["MSE"]#, "KLD", "L1"]
 
     # Giant Training loop
     for lf in loss_functions:
         for e in epochs:
-            MODEL_NAME = "model_{0}_3D".format(lf)
+            MODEL_NAME = "model_{0}_2D".format(lf)
             EPOCHS = e
             device = torch.device("cuda:0" if use_cuda else "cpu")
-            model = vae.VAE(dims=(9, 3, 128, 128), threed=True)
+            model = vae.VAE(dims=(9, 3, 128, 128), threed=False)
             print("CPU model created")
             model.to(device)
             optimizer = optim.Adam(model.parameters(), lr=0.0001)

@@ -11,7 +11,7 @@ from torch.nn import functional as F
 
 
 DENSE_DIM = (64, 30, 30)
-DENSE_DIM = (64, 2, 30, 30) # Uncomment for 3D
+#DENSE_DIM = (64, 2, 30, 30) # Uncomment for 3D
 DENSE_SIZE = np.prod(DENSE_DIM)
 
 
